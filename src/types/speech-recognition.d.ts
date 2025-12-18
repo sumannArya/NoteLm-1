@@ -1,61 +1,42 @@
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
+export {};
 
-interface SpeechRecognitionResultList {
-  length: number;
-  item(index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
+declare global {
+  interface Window {
+    webkitSpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+  }
 
-interface SpeechRecognitionResult {
-  length: number;
-  item(index: number): SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-}
+  interface SpeechRecognition extends EventTarget {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    start(): void;
+    stop(): void;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onstart: (() => void) | null;
+    onend: (() => void) | null;
+    onerror: ((event: Event) => void) | null;
+  }
 
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
+  interface SpeechRecognitionEvent {
+    resultIndex: number;
+    results: SpeechRecognitionResultList;
+  }
 
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-  message: string;
-}
+  interface SpeechRecognitionResultList {
+    length: number;
+    [index: number]: SpeechRecognitionResult;
+  }
 
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  maxAlternatives: number;
-  onaudioend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onaudiostart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onerror:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => void)
-    | null;
-  onnomatch: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onresult:
-    | ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => void)
-    | null;
-  onsoundend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onsoundstart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onspeechend: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onspeechstart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  onstart: ((this: SpeechRecognition, ev: Event) => void) | null;
-  abort(): void;
-  start(): void;
-  stop(): void;
-}
+  interface SpeechRecognitionResult {
+    isFinal: boolean;
+    length: number;
+    [index: number]: SpeechRecognitionAlternative;
+  }
 
-interface SpeechRecognitionStatic {
-  new (): SpeechRecognition;
-}
-
-interface Window {
-  SpeechRecognition: SpeechRecognitionStatic;
-  webkitSpeechRecognition: SpeechRecognitionStatic;
+  interface SpeechRecognitionAlternative {
+    transcript: string;
+    confidence: number;
+  }
 }

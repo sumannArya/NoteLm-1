@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Mic, MicOff, X, Sparkles } from "lucide-react";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 interface Note {
   id?: string;
@@ -32,89 +33,36 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
   const [content, setContent] = useState(note?.content || "");
   const [color, setColor] = useState(note?.color || "#ffffff");
   const [activeField, setActiveField] = useState<"title" | "content">("title");
-  const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
-  
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const activeFieldRef = useRef(activeField);
-  
-  // Keep ref in sync with state using useEffect
+
+  const {
+    transcript,
+    listening,
+    startListening,
+    stopListening,
+    setTranscript,
+  } = useSpeechRecognition();
+
+  // Append voice transcript to active field
   useEffect(() => {
-    activeFieldRef.current = activeField;
-  }, [activeField]);
+    if (!transcript) return;
 
-  const handleTranscript = useCallback((text: string) => {
-    if (activeFieldRef.current === "title") {
-      setTitle((prev) => prev + text);
+    if (activeField === "title") {
+      setTitle((prev) => prev + transcript);
     } else {
-      setContent((prev) => prev + text);
+      setContent((prev) => prev + transcript);
     }
-  }, []);
 
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) return;
-    
-    // Set support status after mount
-    setIsSupported(true);
-    
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-
-    recognition.onresult = (event) => {
-      let finalTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + " ";
-        }
-      }
-      if (finalTranscript) {
-        handleTranscript(finalTranscript);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [handleTranscript]);
-
-  const toggleVoice = () => {
-    if (!recognitionRef.current) return;
-    
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
-      try {
-        recognitionRef.current.start();
-      } catch {
-        // Already started
-      }
-    }
-  };
+    setTranscript(""); // clear after use
+  }, [transcript, activeField, setTranscript]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title.trim() && content.trim()) {
-      onSave({ title: title.trim(), content: content.trim(), color });
+      onSave({
+        title: title.trim(),
+        content: content.trim(),
+        color,
+      });
     }
   };
 
@@ -125,6 +73,7 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
         style={{ backgroundColor: color }}
       >
         <div className="p-6">
+          {/* Header */}
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-800">
               {note ? "Edit Note" : "Create Note"}
@@ -138,74 +87,72 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <input
-                type="text"
-                placeholder="Note title..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onFocus={() => setActiveField("title")}
-                className="w-full bg-transparent text-lg font-medium text-gray-800 placeholder-gray-500 outline-none"
-              />
-            </div>
+            {/* Title */}
+            <input
+              type="text"
+              placeholder="Note title..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onFocus={() => setActiveField("title")}
+              className="w-full bg-transparent text-lg font-medium text-gray-800 placeholder-gray-500 outline-none"
+            />
 
-            <div className="relative">
-              <textarea
-                placeholder="Start typing or use voice..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onFocus={() => setActiveField("content")}
-                rows={6}
-                className="w-full resize-none bg-transparent text-gray-700 placeholder-gray-500 outline-none"
-              />
-            </div>
+            {/* Content */}
+            <textarea
+              placeholder="Start typing or use voice..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onFocus={() => setActiveField("content")}
+              rows={6}
+              className="w-full resize-none bg-transparent text-gray-700 placeholder-gray-500 outline-none"
+            />
 
-            {/* Voice Input Section */}
-            {isSupported && (
-              <div className="flex items-center gap-3 rounded-xl bg-black/5 p-3">
-                <button
-                  type="button"
-                  onClick={toggleVoice}
-                  className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
-                    isListening
-                      ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
-                      : "bg-violet-500 text-white shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50"
-                  }`}
-                >
-                  {isListening ? (
-                    <MicOff className="h-5 w-5" />
-                  ) : (
-                    <Mic className="h-5 w-5" />
-                  )}
-                </button>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">
-                    {isListening ? "Listening..." : "Voice Input"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {isListening
-                      ? `Recording to ${activeField}...`
-                      : `Click to add voice to ${activeField}`}
-                  </p>
-                </div>
-                {isListening && (
-                  <div className="flex gap-1">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-4 w-1 animate-pulse rounded-full bg-red-500"
-                        style={{
-                          animationDelay: `${i * 0.2}s`,
-                          animationDuration: "0.6s",
-                        }}
-                      />
-                    ))}
-                  </div>
+            {/* Voice Input */}
+            <div className="flex items-center gap-3 rounded-xl bg-black/5 p-3">
+              <button
+                type="button"
+                onClick={listening ? stopListening : startListening}
+                className={`flex h-12 w-12 items-center justify-center rounded-full transition-all ${
+                  listening
+                    ? "bg-red-500 text-white shadow-lg shadow-red-500/50 animate-pulse"
+                    : "bg-violet-500 text-white shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50"
+                }`}
+              >
+                {listening ? (
+                  <MicOff className="h-5 w-5" />
+                ) : (
+                  <Mic className="h-5 w-5" />
                 )}
-              </div>
-            )}
+              </button>
 
-            {/* Color Selection */}
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-700">
+                  {listening ? "Listening..." : "Voice Input"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {listening
+                    ? `Recording to ${activeField}...`
+                    : `Click to add voice to ${activeField}`}
+                </p>
+              </div>
+
+              {listening && (
+                <div className="flex gap-1">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-4 w-1 animate-pulse rounded-full bg-red-500"
+                      style={{
+                        animationDelay: `${i * 0.2}s`,
+                        animationDuration: "0.6s",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Color Picker */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Color:</span>
               <div className="flex gap-2">
@@ -226,7 +173,7 @@ export default function NoteEditor({ note, onSave, onClose }: NoteEditorProps) {
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Actions */}
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
